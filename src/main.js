@@ -14,6 +14,18 @@ const state = {
   busy: false,
   contextTokens: 0,
   memChunks: 0,
+  tools: [],            // [{name, description, mutating}]
+  enabled: new Set(),   // selected tool names
+  mode: "Search",
+};
+
+// Mode presets → tool sets (unknown names are filtered against availability).
+const MODES = {
+  "Search": ["deep_research", "web_search", "web_fetch", "wikipedia", "openalex", "arxiv", "recall"],
+  "Deep Research": ["deep_research", "web_search", "web_fetch", "wikipedia", "openalex", "unpaywall", "wayback", "arxiv", "recall", "remember"],
+  "Computer": ["shell", "code_exec", "read_file", "write_file", "create_pdf", "recall"],
+  "Chat": [],
+  "Everything": null,   // all tools
 };
 
 const BACKEND_HINTS = {
@@ -110,9 +122,11 @@ function updateJumpButton() {
 }
 
 // ---------- chat rendering ----------
+function setEmpty(isEmpty) {
+  document.querySelector("#main").classList.toggle("empty", isEmpty);
+}
 function clearEmptyState() {
-  const es = chat.querySelector(".empty-state");
-  if (es) es.remove();
+  setEmpty(false);
 }
 
 function addMessage(role, text, asMarkdown = false) {
@@ -146,11 +160,7 @@ function addMessage(role, text, asMarkdown = false) {
 
 function showEmptyState() {
   chat.innerHTML = "";
-  const es = el("div", "empty-state");
-  const t = el("div", "es-title"); t.textContent = "Sleepers Researcher";
-  const s = el("div"); s.textContent = "Ask a question, research a topic, or build something.";
-  es.append(t, s);
-  chat.appendChild(es);
+  setEmpty(true);
 }
 
 // ---------- activity log ----------
@@ -180,7 +190,11 @@ async function send() {
 
   if (invoke) {
     try {
-      await invoke("chat_send", { message: text, backend: state.backend });
+      await invoke("chat_send", {
+        message: text,
+        backend: state.backend,
+        enabledTools: [...state.enabled],
+      });
     } catch (e) {
       addMessage("agent", "Error: " + e);
       setBusy(false);
@@ -202,9 +216,75 @@ async function stop() {
 function setBusy(b) {
   state.busy = b;
   const btn = $("#send-btn");
-  btn.textContent = b ? "Stop" : "Send";
-  btn.classList.toggle("primary", !b);
-  btn.classList.toggle("ghost", b);
+  btn.classList.toggle("stop", b);
+  btn.title = b ? "Stop" : "Send";
+  if (!b) btn.textContent = "↑";
+}
+
+// ---------- composer: modes + tool selection + menus ----------
+function applyMode(name) {
+  state.mode = name;
+  const all = state.tools.map((t) => t.name);
+  let sel;
+  if (name === "Everything") sel = all;
+  else if (MODES[name]) sel = MODES[name].filter((n) => all.includes(n));
+  else sel = [];
+  state.enabled = new Set(sel);
+  $("#mode-label").textContent = name;
+  renderToolsMenu();
+  updateToolsCount();
+}
+
+function toggleTool(name) {
+  if (state.enabled.has(name)) state.enabled.delete(name);
+  else state.enabled.add(name);
+  state.mode = "Custom";
+  $("#mode-label").textContent = "Custom";
+  renderToolsMenu();
+  updateToolsCount();
+}
+
+function updateToolsCount() {
+  $("#tools-count").textContent = state.enabled.size;
+}
+
+function renderModeMenu() {
+  const menu = $("#mode-menu");
+  menu.innerHTML = "";
+  for (const name of Object.keys(MODES)) {
+    const b = el("button");
+    if (name === state.mode) b.classList.add("sel");
+    b.innerHTML = `<span>${name}</span>`;
+    b.addEventListener("click", () => { applyMode(name); closeMenus(); });
+    menu.appendChild(b);
+  }
+}
+
+function renderToolsMenu() {
+  const menu = $("#tools-menu");
+  menu.innerHTML = "";
+  const head = el("div", "menu-head"); head.textContent = "Tools the agent may use";
+  menu.appendChild(head);
+  for (const t of state.tools) {
+    const on = state.enabled.has(t.name);
+    const b = el("button", "tool-row" + (t.mutating ? " mut" : ""));
+    b.innerHTML =
+      `<span class="tick">${on ? "✓" : ""}</span>` +
+      `<span class="tool-info"><span class="tool-name">${t.name}</span>` +
+      `<span class="tool-desc">${t.description}</span></span>`;
+    b.addEventListener("click", (e) => { e.stopPropagation(); toggleTool(t.name); });
+    menu.appendChild(b);
+  }
+}
+
+function closeMenus() {
+  document.querySelectorAll(".menu").forEach((m) => m.classList.add("hidden"));
+}
+function toggleMenu(id) {
+  const m = $("#" + id);
+  const wasHidden = m.classList.contains("hidden");
+  closeMenus();
+  if (wasHidden) m.classList.remove("hidden");
 }
 
 // ---------- slash commands ----------
@@ -265,6 +345,8 @@ function setBackend(b) {
   document.querySelectorAll('#backend-seg .seg-btn, #set-backend-seg .seg-btn').forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.backend === b);
   });
+  const label = b.charAt(0).toUpperCase() + b.slice(1);
+  const ml = $("#model-label"); if (ml) ml.textContent = label;
   if (invoke) {
     invoke("set_backend", { backend: b })
       .then(() => refreshStatus())
@@ -380,6 +462,26 @@ function wire() {
 
   document.querySelectorAll('#backend-seg .seg-btn, #set-backend-seg .seg-btn').forEach((btn) => {
     btn.addEventListener("click", () => setBackend(btn.dataset.backend));
+  });
+
+  // composer menus
+  $("#mode-btn").addEventListener("click", (e) => { e.stopPropagation(); renderModeMenu(); toggleMenu("mode-menu"); });
+  $("#tools-btn").addEventListener("click", (e) => { e.stopPropagation(); renderToolsMenu(); toggleMenu("tools-menu"); });
+  $("#model-btn").addEventListener("click", (e) => { e.stopPropagation(); toggleMenu("model-menu"); });
+  $("#plus-btn").addEventListener("click", (e) => { e.stopPropagation(); toggleMenu("plus-menu"); });
+  $("#tools-menu").addEventListener("click", (e) => e.stopPropagation());  // keep open while ticking
+  $("#model-menu").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => { setBackend(b.dataset.backend); closeMenus(); }));
+  $("#plus-menu").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => {
+      closeMenus();
+      if (b.dataset.act === "ingest") $("#ingest-btn").click();
+      else if (b.dataset.act === "new") newChat();
+    }));
+  document.addEventListener("click", closeMenus);
+  // "/" opens the mode menu when the input is empty-ish
+  $("#input").addEventListener("input", () => {
+    if ($("#input").value === "/") { renderModeMenu(); toggleMenu("mode-menu"); }
   });
 
   chat.addEventListener("scroll", updateJumpButton, { passive: true });
@@ -503,10 +605,20 @@ async function boot() {
   setBackend("gemini");
   await subscribe();
   if (invoke) {
+    try { state.tools = await invoke("get_tools"); } catch { state.tools = []; }
+    applyMode("Search");
     try { renderHistory(await invoke("get_history")); } catch { showEmptyState(); }
     await refreshSessions();
     await refreshMemory();
   } else {
+    // browser preview: fake tools so the composer is explorable
+    state.tools = [
+      { name: "web_search", description: "Search the web.", mutating: false },
+      { name: "web_fetch", description: "Read a page.", mutating: false },
+      { name: "shell", description: "Run a command.", mutating: true },
+      { name: "create_pdf", description: "Make a PDF.", mutating: true },
+    ];
+    applyMode("Search");
     showEmptyState();
     logActivity("startup", "browser preview mode");
   }

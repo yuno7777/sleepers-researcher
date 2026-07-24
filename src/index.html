@@ -63,10 +63,46 @@
       <section id="chat" aria-live="polite"></section>
       <button id="jump-latest" type="button">↓ Jump to latest</button>
 
-      <!-- INPUT BAR -->
-      <footer id="inputbar">
-        <textarea id="input" rows="1" placeholder="Ask, research, or build… (Enter to send · Shift+Enter for newline)"></textarea>
-        <button class="btn primary" id="send-btn">Send</button>
+      <!-- HERO (empty state) -->
+      <div id="hero">
+        <div class="hero-eyebrow">Research</div>
+        <div class="hero-title">What do you want to know?</div>
+      </div>
+
+      <!-- COMPOSER -->
+      <footer id="composer">
+        <div class="composer-card">
+          <textarea id="input" rows="1" placeholder="Ask, research, or build…   (Enter to send · Shift+Enter for newline · / for modes)"></textarea>
+          <div class="composer-bar">
+            <div class="composer-left">
+              <div class="menu-anchor">
+                <button class="cbtn round" id="plus-btn" title="Add">+</button>
+                <div class="menu hidden" id="plus-menu">
+                  <button data-act="ingest">Ingest files / folder</button>
+                  <button data-act="new">New chat</button>
+                </div>
+              </div>
+              <div class="menu-anchor">
+                <button class="cbtn" id="mode-btn"><span id="mode-label">Search</span> <span class="caret">▾</span></button>
+                <div class="menu hidden" id="mode-menu"></div>
+              </div>
+              <div class="menu-anchor">
+                <button class="cbtn" id="tools-btn">Tools <span id="tools-count" class="count">·</span> <span class="caret">▾</span></button>
+                <div class="menu hidden wide" id="tools-menu"></div>
+              </div>
+            </div>
+            <div class="composer-right">
+              <div class="menu-anchor">
+                <button class="cbtn" id="model-btn"><span id="model-label">Gemini</span> <span class="caret">▾</span></button>
+                <div class="menu hidden" id="model-menu">
+                  <button data-backend="gemini">Gemini <span class="menu-sub">reasoning</span></button>
+                  <button data-backend="groq">Groq <span class="menu-sub">fast</span></button>
+                </div>
+              </div>
+              <button class="send-round" id="send-btn" title="Send">↑</button>
+            </div>
+          </div>
+        </div>
       </footer>
     </main>
 

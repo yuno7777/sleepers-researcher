@@ -35,6 +35,7 @@ const BACKEND_HINTS = {
 
 const chat = $("#chat");
 let streamingBubble = null;
+let currentSources = [];   // {n, title, url} for the in-flight/last research turn
 
 // ---------- markdown (XSS-safe: escape first, then insert known tags) ----------
 function escapeHtml(s) {
@@ -53,6 +54,16 @@ function inlineMd(s) {
   // bare urls (not already inside an attribute or tag body)
   t = t.replace(/(^|[\s(])(https?:\/\/[^\s<)"]+)/g,
     (m, pre, url) => `${pre}<a class="md-link" data-url="${url}">${url}</a>`);
+  // [n] citation markers -> clickable chips (only when we have that source)
+  t = t.replace(/\[(\d+)\]/g, (m, num) => {
+    const i = parseInt(num, 10);
+    const src = currentSources[i - 1];
+    if (src && i >= 1) {
+      const title = (src.title || src.url).replace(/"/g, "");
+      return `<a class="cite" data-url="${src.url}" title="${escapeHtml(title)}">${i}</a>`;
+    }
+    return m;
+  });
   return t;
 }
 
@@ -163,6 +174,25 @@ function showEmptyState() {
   setEmpty(true);
 }
 
+function renderSourcesCard(sources) {
+  const card = el("div", "sources-card");
+  const head = el("div", "sources-head");
+  head.textContent = `Sources · ${sources.length}`;
+  card.appendChild(head);
+  for (const s of sources) {
+    const a = el("a", "source-item");
+    let host = "";
+    try { host = new URL(s.url).hostname.replace(/^www\./, ""); } catch {}
+    a.dataset.url = s.url;
+    a.innerHTML = `<span class="src-n"></span><span class="src-text"><span class="src-title"></span><span class="src-host"></span></span>`;
+    a.querySelector(".src-n").textContent = s.n;
+    a.querySelector(".src-title").textContent = s.title || s.url;
+    a.querySelector(".src-host").textContent = host;
+    card.appendChild(a);
+  }
+  return card;
+}
+
 // ---------- activity log ----------
 const activityList = $("#activity-list");
 function logActivity(kind, detail) {
@@ -186,6 +216,7 @@ async function send() {
 
   addMessage("user", text);
   input.value = ""; autoSize();
+  currentSources = [];
   setBusy(true);
 
   if (invoke) {
@@ -555,12 +586,12 @@ function wire() {
       setTimeout(() => (copyBtn.textContent = "Copy"), 1200);
       return;
     }
-    const link = e.target.closest("a.md-link");
+    const link = e.target.closest("a.md-link, a.cite, .source-item");
     if (link) {
       e.preventDefault();
       const url = link.dataset.url;
-      if (TAURI?.opener?.openUrl) TAURI.opener.openUrl(url);
-      else logActivity("link", url);
+      if (url && TAURI?.opener?.openUrl) TAURI.opener.openUrl(url);
+      else if (url) logActivity("link", url);
     }
   });
 }
@@ -580,13 +611,21 @@ async function subscribe() {
     stickScroll(wasNear);
   });
   await listen("agent:tool", (e) => addMessage("tool", e.payload.text));
+  await listen("research:sources", (e) => {
+    currentSources = e.payload.sources || [];
+    logActivity("research", `${currentSources.length} sources gathered`);
+  });
   await listen("agent:done", async () => {
     if (streamingBubble) {
       const wasNear = nearBottom();
       streamingBubble.classList.remove("cursor-blink");
-      // Re-render the completed answer as markdown.
+      // Re-render the completed answer as markdown (with citations).
       streamingBubble.classList.add("md");
       streamingBubble.innerHTML = renderMarkdown(streamingBubble._raw || "");
+      // Attach a sources card if this turn gathered any.
+      if (currentSources.length) {
+        streamingBubble.closest(".msg").appendChild(renderSourcesCard(currentSources));
+      }
       stickScroll(wasNear);
     }
     streamingBubble = null;
@@ -627,4 +666,7 @@ async function boot() {
 boot();
 
 // Exposed for debugging/inspection (harmless; no effect on app behaviour).
-window.__sr = { renderMarkdown, addMessage };
+window.__sr = {
+  renderMarkdown, addMessage, renderSourcesCard,
+  setSources: (s) => { currentSources = s; },
+};

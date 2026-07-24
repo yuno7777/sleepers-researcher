@@ -1,5 +1,5 @@
 use crate::backends::ChatMessage;
-use crate::state::{AppState, Permissions, SessionInfo, Status};
+use crate::state::{AppState, Permissions, SessionInfo, Status, ToolMeta};
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::oneshot;
@@ -71,6 +71,19 @@ pub fn get_soul(state: State<'_, AppState>) -> Vec<String> {
     state.memory.soul_facts()
 }
 
+/// All available tools + metadata, so the UI can offer manual tool selection.
+#[tauri::command]
+pub fn get_tools() -> Vec<ToolMeta> {
+    crate::tools::registry()
+        .iter()
+        .map(|t| ToolMeta {
+            name: t.name().to_string(),
+            description: t.description().to_string(),
+            mutating: t.mutating(),
+        })
+        .collect()
+}
+
 /// Start a fresh chat session. Past chats remain in long-term memory.
 #[tauri::command]
 pub fn new_chat(state: State<'_, AppState>) {
@@ -111,7 +124,12 @@ pub fn new_permission(state: &AppState) -> (u64, oneshot::Receiver<bool>) {
 }
 
 #[tauri::command]
-pub async fn chat_send(app: AppHandle, message: String, backend: String) -> Result<(), String> {
+pub async fn chat_send(
+    app: AppHandle,
+    message: String,
+    backend: String,
+    enabled_tools: Option<Vec<String>>,
+) -> Result<(), String> {
     {
         let state = app.state::<AppState>();
         state.cancel.store(false, std::sync::atomic::Ordering::Relaxed);
@@ -138,8 +156,8 @@ pub async fn chat_send(app: AppHandle, message: String, backend: String) -> Resu
                 return;
             }
         }
-        // Hand off to the ReAct agent loop.
-        crate::agent::react_loop::run(app.clone(), backend).await;
+        // Hand off to the ReAct agent loop with the caller's tool selection.
+        crate::agent::react_loop::run(app.clone(), backend, enabled_tools).await;
     });
 
     Ok(())

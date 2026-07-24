@@ -31,6 +31,14 @@ pub struct Status {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ToolMeta {
+    pub name: String,
+    pub description: String,
+    pub mutating: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionInfo {
     pub id: i64,
     pub preview: String,

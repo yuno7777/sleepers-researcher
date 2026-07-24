@@ -49,6 +49,7 @@ lines automatically and paginates across A4 pages. If you can read this, PDF gen
             commands::get_status,
             commands::get_history,
             commands::get_soul,
+            commands::get_tools,
             commands::new_chat,
             commands::list_sessions,
             commands::load_session,

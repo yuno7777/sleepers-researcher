@@ -39,9 +39,16 @@ Never wrap the JSON in markdown fences. Only one JSON object per turn.",
     p
 }
 
-pub async fn run(app: AppHandle, backend_name: String) {
+pub async fn run(app: AppHandle, backend_name: String, enabled_tools: Option<Vec<String>>) {
     let state = app.state::<AppState>();
-    let toolset = tools::registry();
+    // Honour the caller's manual tool selection; empty/None means "all tools".
+    let toolset: Vec<Box<dyn Tool>> = match &enabled_tools {
+        Some(names) if !names.is_empty() => tools::registry()
+            .into_iter()
+            .filter(|t| names.iter().any(|n| n == t.name()))
+            .collect(),
+        _ => tools::registry(),
+    };
 
     // The user query just added to the conversation.
     let query = state

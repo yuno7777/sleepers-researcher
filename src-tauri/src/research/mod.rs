@@ -114,11 +114,33 @@ fn decode_ddg_href(href: &str) -> String {
     }
 }
 
-/// Fetch a URL and return readable text (drops scripts/styles/tags).
+/// Fetch a URL and return readable text. If the live page is blocked by a bot
+/// challenge / paywall (or errors), transparently retries via the Wayback
+/// Machine's cached copy — which bypasses most Cloudflare walls and dead links.
 pub async fn fetch_readable(url: &str, max_chars: usize) -> Result<String> {
     if !url.starts_with("http") {
         return Err(anyhow!("url must start with http(s)"));
     }
+    let direct = fetch_text_once(url).await;
+    let good = match &direct {
+        Ok(t) if !looks_blocked(t) => true,
+        _ => false,
+    };
+    if good {
+        return Ok(cap(&direct.unwrap(), max_chars));
+    }
+    // Fallback: Wayback Machine cached snapshot.
+    if let Some(snapshot) = wayback_snapshot(url).await {
+        if let Ok(t) = fetch_text_once(&snapshot).await {
+            if !looks_blocked(&t) {
+                return Ok(cap(&format!("{t}\n\n(via Wayback Machine cache)"), max_chars));
+            }
+        }
+    }
+    direct.map(|t| cap(&t, max_chars))
+}
+
+async fn fetch_text_once(url: &str) -> Result<String> {
     let resp = client().get(url).send().await?;
     let status = resp.status();
     let ctype = resp
@@ -136,12 +158,49 @@ pub async fn fetch_readable(url: &str, max_chars: usize) -> Result<String> {
     } else {
         body
     };
-    let text = text.trim();
-    Ok(if text.len() > max_chars {
-        format!("{}…[truncated]", &text[..max_chars])
+    Ok(text.trim().to_string())
+}
+
+/// Heuristic: is this a bot-challenge / empty page rather than real content?
+fn looks_blocked(text: &str) -> bool {
+    if text.len() < 350 {
+        return true;
+    }
+    let head = text.chars().take(600).collect::<String>().to_lowercase();
+    const MARKERS: [&str; 6] = [
+        "javascript is disabled",
+        "enable javascript",
+        "client challenge",
+        "just a moment",
+        "verify you are human",
+        "captcha",
+    ];
+    MARKERS.iter().any(|m| head.contains(m))
+}
+
+/// Ask the Wayback Machine for the closest cached snapshot of a URL.
+async fn wayback_snapshot(url: &str) -> Option<String> {
+    let api = format!("https://archive.org/wayback/available?url={}", urlencode(url));
+    let v: Value = client().get(&api).send().await.ok()?.json().await.ok()?;
+    let snap = &v["archived_snapshots"]["closest"];
+    if snap["available"].as_bool().unwrap_or(false) {
+        snap["url"].as_str().map(|s| s.to_string())
+    } else {
+        None
+    }
+}
+
+fn cap(text: &str, max_chars: usize) -> String {
+    if text.len() > max_chars {
+        // Respect char boundaries when slicing.
+        let mut end = max_chars;
+        while end > 0 && !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        format!("{}…[truncated]", &text[..end])
     } else {
         text.to_string()
-    })
+    }
 }
 
 /// Fetch many URLs concurrently. Returns (url, Ok(text) | Err(msg)) in order.

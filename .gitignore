@@ -1,0 +1,23 @@
+# Rust / Cargo
+/src-tauri/target/
+/release/
+**/*.rs.bk
+Cargo.lock
+
+# Node
+node_modules/
+dist/
+
+# Secrets — NEVER commit
+.env
+.env.local
+
+# Local data (vector store, app data)
+*.db
+*.sqlite
+*.sqlite3
+/src-tauri/data/
+
+# OS
+Thumbs.db
+.DS_Store

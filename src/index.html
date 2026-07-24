@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sleepers Researcher</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+      <div class="brand">
+        <div class="brand-mark"></div>
+        <div class="brand-text">
+          <div class="brand-title">Sleepers</div>
+          <div class="brand-sub">Researcher</div>
+        </div>
+      </div>
+
+      <div class="side-section">
+        <button class="btn ghost full" id="new-chat-btn">+ New Chat</button>
+      </div>
+
+      <div class="side-section">
+        <div class="side-label">Backend</div>
+        <div class="seg" id="backend-seg">
+          <button class="seg-btn active" data-backend="gemini">Gemini</button>
+          <button class="seg-btn" data-backend="groq">Groq</button>
+        </div>
+        <div class="hint" id="backend-hint">Heavy reasoning · gemini-3.1-flash-lite-preview</div>
+      </div>
+
+      <div class="side-section">
+        <div class="side-label">Memory</div>
+        <div class="status-row">
+          <span class="dot" id="mem-dot"></span>
+          <span id="mem-status">0 chunks indexed</span>
+        </div>
+        <button class="btn ghost full" id="ingest-btn">Ingest folder…</button>
+      </div>
+
+      <div class="side-section grow">
+        <div class="side-label">Recent chats</div>
+        <div id="session-list" class="session-list"></div>
+      </div>
+
+      <div class="side-section">
+        <button class="btn ghost full" id="settings-btn">Settings</button>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main id="main">
+      <header id="topbar">
+        <div class="title">Research Session</div>
+        <div class="top-actions">
+          <span class="usage" id="token-usage">ctx 0 / 128k</span>
+          <button class="btn ghost sm" id="toggle-activity">Activity</button>
+        </div>
+      </header>
+
+      <section id="chat" aria-live="polite"></section>
+      <button id="jump-latest" type="button">↓ Jump to latest</button>
+
+      <!-- INPUT BAR -->
+      <footer id="inputbar">
+        <textarea id="input" rows="1" placeholder="Ask, research, or build… (Enter to send · Shift+Enter for newline)"></textarea>
+        <button class="btn primary" id="send-btn">Send</button>
+      </footer>
+    </main>
+
+    <!-- ACTIVITY LOG -->
+    <aside id="activity" class="collapsed">
+      <div class="activity-head">
+        <span>Activity Log</span>
+        <button class="btn ghost xs" id="clear-activity">Clear</button>
+      </div>
+      <div id="activity-list"></div>
+    </aside>
+  </div>
+
+  <!-- CONFIRMATION MODAL -->
+  <div id="modal-overlay" class="hidden">
+    <div id="modal">
+      <div class="modal-head">
+        <span class="modal-icon" id="modal-icon">!</span>
+        <span id="modal-title">Confirm action</span>
+      </div>
+      <div class="modal-sub" id="modal-sub"></div>
+      <pre id="modal-body"></pre>
+      <div class="modal-actions">
+        <button class="btn ghost" id="modal-deny">Deny</button>
+        <button class="btn primary" id="modal-approve">Approve</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS PANEL -->
+  <div id="settings-overlay" class="hidden">
+    <div id="settings-panel">
+      <div class="settings-head">
+        <span>Settings</span>
+        <button class="btn ghost xs" id="settings-close">Close</button>
+      </div>
+      <div class="settings-body">
+        <div class="set-group">
+          <div class="set-label">Default backend</div>
+          <div class="seg" id="set-backend-seg">
+            <button class="seg-btn active" data-backend="gemini">Gemini</button>
+            <button class="seg-btn" data-backend="groq">Groq</button>
+          </div>
+        </div>
+        <div class="set-group">
+          <div class="set-label">Permissions</div>
+          <label class="toggle">
+            <input type="checkbox" id="yolo-toggle" />
+            <span>YOLO mode — disable all confirmations this session</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="auto-file-write" />
+            <span>Auto-approve <code>file_write</code></span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="auto-code-exec" />
+            <span>Auto-approve <code>code_exec</code></span>
+          </label>
+        </div>
+        <div class="set-group">
+          <div class="set-label">Context</div>
+          <div class="set-readout" id="set-context">Tokens used: 0 / 128,000</div>
+        </div>
+        <div class="set-group">
+          <div class="set-label">Soul — what the agent knows about you</div>
+          <div id="soul-list" class="soul-list"><div class="soul-empty">Nothing stored yet. Tell the agent about yourself and it will remember.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>

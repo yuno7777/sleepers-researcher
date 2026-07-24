@@ -7,6 +7,29 @@ Built with a Rust backend and a Tauri v2 frontend, packaged as a Windows `.exe`.
 > Architected so a local model (Ollama-served Gemma) can be added later as a third backend.
 > Only Gemini and Groq are implemented in this build.
 
+## Research features
+- **Deep research engine** — the `deep_research` tool plans sub-queries, searches,
+  and reads multiple sources **in parallel**, then the agent synthesises an answer
+  with inline `[n]` citations and a clickable Sources list.
+- **Keyless out of the box** — web search uses Tavily if `TAVILY_API_KEY` is set,
+  otherwise a DuckDuckGo fallback. Paywalled / bot-walled pages are transparently
+  retried through the **Wayback Machine** cache.
+- **Free data sources** — Wikipedia, OpenAlex (240M+ scholarly works, with
+  open-access PDF links), and arXiv, all keyless.
+- **Manual tool selection** — a composer with mode presets (Search / Deep Research /
+  Computer / Chat / Everything) and a per-tool multi-select, so you control exactly
+  which tools the agent may use.
+- **Multimodal memory** — ingest text, code, PDFs, and **images** into one vector
+  space (Gemini Embedding 2); chats and a "soul" of facts about you persist across
+  sessions and are auto-recalled.
+- **One-click PDF report** — export any answer, with its sources, to a PDF.
+
+## Tools
+`deep_research`, `web_search`, `web_fetch`, `wikipedia`, `openalex`, `arxiv`,
+`read_file`, `write_file`, `code_exec` (Python/Rust sandbox), `shell`,
+`create_pdf`, `remember`, `recall`. Mutating tools (writes, shell, code) require
+in-app confirmation unless `/yolo` or per-tool auto-approve is on.
+
 ## Stack
 - **Backend:** Rust (Tauri v2 commands/events), `reqwest` + `serde_json` for LLM REST calls
 - **Frontend:** plain HTML/CSS/JS (no framework) — fast to boot, design-system driven

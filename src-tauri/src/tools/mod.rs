@@ -9,10 +9,12 @@ pub mod code_exec;
 pub mod deep_research;
 pub mod file_ops;
 pub mod memory_tool;
+pub mod openalex;
 pub mod pdf_create;
 pub mod shell;
 pub mod web_fetch;
 pub mod web_search;
+pub mod wikipedia;
 
 use crate::state::AppState;
 use anyhow::Result;
@@ -42,6 +44,8 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(shell::ShellTool),
         Box::new(web_search::WebSearchTool),
         Box::new(web_fetch::WebFetchTool),
+        Box::new(wikipedia::WikipediaTool),
+        Box::new(openalex::OpenAlexTool),
         Box::new(arxiv::ArxivTool),
         Box::new(pdf_create::CreatePdfTool),
         Box::new(memory_tool::RememberTool),

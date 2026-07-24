@@ -6,6 +6,7 @@
 
 pub mod arxiv;
 pub mod code_exec;
+pub mod deep_research;
 pub mod file_ops;
 pub mod memory_tool;
 pub mod pdf_create;
@@ -34,6 +35,7 @@ pub trait Tool: Send + Sync {
 /// Build the default tool registry.
 pub fn registry() -> Vec<Box<dyn Tool>> {
     vec![
+        Box::new(deep_research::DeepResearchTool),
         Box::new(file_ops::ReadFileTool),
         Box::new(file_ops::WriteFileTool),
         Box::new(code_exec::CodeExecTool),

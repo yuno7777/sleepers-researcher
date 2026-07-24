@@ -22,9 +22,11 @@ You may use these tools:\n{}\n\
 On each turn respond with EXACTLY ONE JSON object and nothing else.\n\
 To call a tool: {{\"thought\":\"why\",\"tool\":\"<name>\",\"args\":{{...}}}}\n\
 When you can answer the user: {{\"thought\":\"why\",\"answer\":\"<final answer>\"}}\n\
-Rules: for deep research, web_search to find sources, then web_fetch the most promising \
-URLs to read full page content, and cross-reference several sources before answering — do \
-not rely on snippets alone. Use arxiv for papers. Use the shell tool to run scripts/tooling \
+Rules: for any non-trivial research question, prefer the deep_research tool — it plans \
+sub-queries, searches, and reads multiple sources in parallel, returning numbered evidence; \
+then write the answer citing sources inline as [n] and end with a \"Sources\" list. For quick \
+lookups use web_search then web_fetch the best URLs. Cross-reference several sources; never \
+rely on snippets alone. Use arxiv for papers. Use the shell tool to run scripts/tooling \
 on the PC and create_pdf to produce PDF reports. Read files before writing them. Use recall \
 to look up past context, and remember to save durable facts the user shares about themselves, \
 their projects, goals, or preferences (store those with kind \"soul\"). Be efficient: don't \

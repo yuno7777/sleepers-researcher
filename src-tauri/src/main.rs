@@ -4,6 +4,7 @@ mod agent;
 mod backends;
 mod commands;
 mod memory;
+mod research;
 mod state;
 mod tools;
 

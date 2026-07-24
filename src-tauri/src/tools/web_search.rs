@@ -1,6 +1,8 @@
-//! Web search via the Tavily API (read-only, logged). Requires TAVILY_API_KEY.
+//! Web search (read-only, logged). Uses Tavily if TAVILY_API_KEY is set,
+//! otherwise a keyless DuckDuckGo fallback — so search works out of the box.
 
 use super::{activity, Tool};
+use crate::research;
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 use tauri::AppHandle;
@@ -13,7 +15,7 @@ impl Tool for WebSearchTool {
         "web_search"
     }
     fn description(&self) -> &'static str {
-        "Search the web for current information."
+        "Search the web for current information (Tavily, or keyless DuckDuckGo)."
     }
     fn args_hint(&self) -> Value {
         json!({ "query": "search query" })
@@ -23,59 +25,16 @@ impl Tool for WebSearchTool {
     }
     async fn execute(&self, args: &Value, app: &AppHandle) -> Result<String> {
         let query = args["query"].as_str().ok_or_else(|| anyhow!("missing 'query'"))?;
-        let key = std::env::var("TAVILY_API_KEY").unwrap_or_default();
-        if key.is_empty() {
-            return Ok("web_search unavailable: TAVILY_API_KEY is not set in .env.".into());
-        }
-        activity(app, "search", query.to_string());
+        activity(app, "search", format!("{} ({})", query, research::provider_name()));
 
-        let client = reqwest::Client::new();
-        let resp = client
-            .post("https://api.tavily.com/search")
-            .json(&json!({
-                "api_key": key,
-                "query": query,
-                "max_results": 8,
-                "search_depth": "advanced",
-                "include_answer": true,
-                "include_raw_content": false
-            }))
-            .send()
-            .await?;
-        let status = resp.status();
-        let v: Value = resp.json().await?;
-        if !status.is_success() {
-            return Err(anyhow!("Tavily error {}: {}", status, v));
+        let results = research::search(query, 8).await?;
+        if results.is_empty() {
+            return Ok("No results.".into());
         }
-
         let mut out = String::new();
-        if let Some(ans) = v["answer"].as_str() {
-            if !ans.is_empty() {
-                out.push_str(&format!("Summary: {ans}\n\n"));
-            }
-        }
-        if let Some(results) = v["results"].as_array() {
-            for (i, r) in results.iter().enumerate() {
-                out.push_str(&format!(
-                    "[{}] {}\n{}\n{}\n\n",
-                    i + 1,
-                    r["title"].as_str().unwrap_or(""),
-                    r["url"].as_str().unwrap_or(""),
-                    truncate(r["content"].as_str().unwrap_or(""), 500)
-                ));
-            }
-        }
-        if out.is_empty() {
-            out = "No results.".into();
+        for (i, r) in results.iter().enumerate() {
+            out.push_str(&format!("[{}] {}\n{}\n{}\n\n", i + 1, r.title, r.url, r.snippet));
         }
         Ok(out)
-    }
-}
-
-fn truncate(s: &str, n: usize) -> String {
-    if s.len() > n {
-        format!("{}…", &s[..n])
-    } else {
-        s.to_string()
     }
 }

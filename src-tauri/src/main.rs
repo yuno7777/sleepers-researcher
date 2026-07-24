@@ -25,6 +25,29 @@ fn main() {
                 run_ingest(args.get(2).map(|s| s.as_str()));
                 return;
             }
+            "search" => {
+                let q = args[2..].join(" ");
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    println!("provider: {}", research::provider_name());
+                    match research::search(&q, 6).await {
+                        Ok(rs) => {
+                            println!("{} results:", rs.len());
+                            for (i, r) in rs.iter().enumerate() {
+                                println!("[{}] {}\n    {}", i + 1, r.title, r.url);
+                            }
+                            if let Some(first) = rs.first() {
+                                match research::fetch_readable(&first.url, 300).await {
+                                    Ok(t) => println!("\nfetched [1] ({} chars preview): {}", t.len(), t),
+                                    Err(e) => println!("fetch [1] failed: {e}"),
+                                }
+                            }
+                        }
+                        Err(e) => println!("search error: {e}"),
+                    }
+                });
+                return;
+            }
             "pdftest" => {
                 let out = args.get(2).map(|s| s.as_str()).unwrap_or("pdftest.pdf");
                 match tools::pdf_create::generate_pdf(

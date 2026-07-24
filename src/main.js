@@ -155,14 +155,19 @@ function addMessage(role, text, asMarkdown = false) {
   }
   msg.append(who, bubble);
   if (role === "agent") {
-    const copy = el("button", "msg-copy");
+    const actions = el("div", "msg-actions");
+    const copy = el("button", "msg-btn");
     copy.textContent = "Copy";
     copy.addEventListener("click", () => {
       navigator.clipboard.writeText(bubble._raw ?? bubble.textContent);
       copy.textContent = "Copied";
       setTimeout(() => (copy.textContent = "Copy"), 1200);
     });
-    msg.appendChild(copy);
+    const pdf = el("button", "msg-btn");
+    pdf.textContent = "Export PDF";
+    pdf.addEventListener("click", () => exportPdf(msg, pdf));
+    actions.append(copy, pdf);
+    msg.appendChild(actions);
   }
   chat.appendChild(msg);
   stickScroll(wasNear);
@@ -172,6 +177,46 @@ function addMessage(role, text, asMarkdown = false) {
 function showEmptyState() {
   chat.innerHTML = "";
   setEmpty(true);
+}
+
+// Strip markdown to clean text for the PDF body.
+function stripMarkdown(md) {
+  return md
+    .replace(/```(\w*)\n?([\s\S]*?)```/g, (m, l, c) => `\n${c}\n`)
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1$2")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\s*>\s?/gm, "")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, "$1 ($2)");
+}
+
+async function exportPdf(msg, btn) {
+  if (!invoke) { logActivity("pdf", "unavailable in browser preview"); return; }
+  const bubble = msg.querySelector(".bubble");
+  const raw = bubble._raw || bubble.textContent || "";
+  const sources = msg._sources || [];
+  let content = stripMarkdown(raw);
+  if (sources.length) {
+    content += "\n\nSources\n";
+    for (const s of sources) content += `[${s.n}] ${s.title || ""} — ${s.url}\n`;
+  }
+  const firstLine = (raw.split("\n").find((l) => l.trim()) || "Research Report")
+    .replace(/^#{1,6}\s+/, "").replace(/[*`>]/g, "").trim();
+  const title = firstLine.slice(0, 70) || "Research Report";
+  const prev = btn.textContent;
+  btn.textContent = "Saving…"; btn.disabled = true;
+  try {
+    const path = await invoke("export_report", { title, content });
+    btn.textContent = "Saved ✓";
+    logActivity("pdf", path);
+  } catch (e) {
+    btn.textContent = String(e) === "cancelled" ? prev : "Failed";
+    if (String(e) !== "cancelled") logActivity("pdf", "error: " + e);
+  } finally {
+    btn.disabled = false;
+    setTimeout(() => (btn.textContent = prev), 1600);
+  }
 }
 
 function renderSourcesCard(sources) {
@@ -624,7 +669,9 @@ async function subscribe() {
       streamingBubble.innerHTML = renderMarkdown(streamingBubble._raw || "");
       // Attach a sources card if this turn gathered any.
       if (currentSources.length) {
-        streamingBubble.closest(".msg").appendChild(renderSourcesCard(currentSources));
+        const msg = streamingBubble.closest(".msg");
+        msg._sources = currentSources;
+        msg.appendChild(renderSourcesCard(currentSources));
       }
       stickScroll(wasNear);
     }

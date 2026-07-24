@@ -78,6 +78,7 @@ lines automatically and paginates across A4 pages. If you can read this, PDF gen
             commands::list_sessions,
             commands::load_session,
             commands::cancel_agent,
+            commands::export_report,
             commands::set_backend,
             commands::set_permissions,
             commands::chat_send,

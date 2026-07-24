@@ -59,6 +59,37 @@ pub fn cancel_agent(state: State<'_, AppState>) {
     state.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
 }
 
+/// Export a research answer to a PDF report via a save dialog.
+#[tauri::command]
+pub async fn export_report(app: AppHandle, title: String, content: String) -> Result<String, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let default_name = sanitize_filename(&title);
+    let picked = app
+        .dialog()
+        .file()
+        .add_filter("PDF", &["pdf"])
+        .set_file_name(&default_name)
+        .blocking_save_file();
+    let Some(path) = picked else {
+        return Err("cancelled".into());
+    };
+    let path = path.into_path().map_err(|e| e.to_string())?;
+    let path_str = path.to_string_lossy().to_string();
+    crate::tools::pdf_create::generate_pdf(&path_str, &title, &content).map_err(|e| e.to_string())?;
+    let _ = app.emit("activity:log", json!({ "kind": "pdf", "detail": path_str.clone() }));
+    Ok(path_str)
+}
+
+fn sanitize_filename(title: &str) -> String {
+    let base: String = title
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' { c } else { '_' })
+        .collect();
+    let base = base.trim();
+    let base = if base.is_empty() { "research-report" } else { base };
+    format!("{}.pdf", base.chars().take(60).collect::<String>())
+}
+
 /// Messages for the active session — used to render history on app launch.
 #[tauri::command]
 pub fn get_history(state: State<'_, AppState>) -> Vec<ChatMessage> {

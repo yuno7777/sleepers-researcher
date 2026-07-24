@@ -378,12 +378,13 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
   padding: 5px 10px; background: var(--surface-2); border-bottom: 1px solid var(--border);
   font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.8px;
 }
-.code-copy, .msg-copy {
+.code-copy, .msg-btn {
   background: transparent; border: 1px solid var(--border-strong); color: var(--text-dim);
   border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer;
   font-family: var(--font); transition: all 0.15s var(--ease);
 }
-.code-copy:hover, .msg-copy:hover { background: var(--surface-3); color: var(--text); }
+.code-copy:hover, .msg-btn:hover { background: var(--surface-3); color: var(--text); }
+.msg-btn:disabled { opacity: 0.6; cursor: default; }
 .code-wrap pre { margin: 0; padding: 12px; overflow-x: auto; }
 .code-wrap code {
   background: none; padding: 0; font-family: ui-monospace, Consolas, monospace;
@@ -392,8 +393,8 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 5px; font-
 
 /* message hover actions */
 .msg { position: relative; }
-.msg-copy { position: absolute; top: -6px; right: 0; opacity: 0; }
-.msg.agent:hover .msg-copy { opacity: 1; }
+.msg-actions { display: flex; gap: 6px; margin-top: 8px; opacity: 0; transition: opacity 0.15s var(--ease); }
+.msg.agent:hover .msg-actions { opacity: 1; }
 
 /* tool call chip */
 .msg.tool .bubble {
